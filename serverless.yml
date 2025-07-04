@@ -1,0 +1,82 @@
+service: url-shortener
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    URLS_TABLE: Urls
+    RATELIMIT_TABLE: RateLimits
+    RATE_LIMIT_MAX: 10    # Max requests per IP per hour
+    RATE_LIMIT_WINDOW: 3600  # In seconds (1 hour)
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:us-east-1:*:table/Urls
+            - arn:aws:dynamodb:us-east-1:*:table/RateLimits
+
+functions:
+  createShortUrl:
+    handler: src/handlers/createShortUrl.handler
+    events:
+      - http:
+          path: shorten
+          method: post
+          cors: true
+
+  redirect:
+    handler: src/handlers/redirect.handler
+    events:
+      - http:
+          path: /{code}
+          method: get
+          cors: true
+
+  analytics:
+    handler: src/handlers/analytics.handler
+    events:
+      - http:
+          path: analytics/{code}
+          method: get
+          cors: true
+
+plugins:
+  - serverless-offline
+
+resources:
+  Resources:
+    UrlsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Urls
+        AttributeDefinitions:
+          - AttributeName: code
+            AttributeType: S
+        KeySchema:
+          - AttributeName: code
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TimeToLiveSpecification:
+          AttributeName: expiresAt
+          Enabled: true
+
+    RateLimitsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: RateLimits
+        AttributeDefinitions:
+          - AttributeName: ip
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ip
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST

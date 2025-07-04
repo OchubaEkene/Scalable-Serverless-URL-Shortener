@@ -1,7 +1,6 @@
 # Scalable Serverless URL Shortener
 
 A scalable, serverless URL shortening service built with AWS Lambda, API Gateway, and DynamoDB, deployed via the Serverless Framework.
-
 ---
 
 ## Features
